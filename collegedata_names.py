@@ -97,3 +97,132 @@ col_rename_dict = {
 	'Undergrads (women) - 1':'Undergraduates (women)',
 	'Undergrads (women) - 2':'Undergraduates (women pct of all)'
 }
+
+dirty_cols_extract_dict = {
+    'ACT Composite':{
+        'ACT 25th':'(\d+)-',
+        'ACT 75th':'-(\d+)',
+        'ACT Mean':'(\d)+ average'
+    },
+    'Average Award - Merit-Based Gift (All Undergraduates)':{
+        'FinAid Merit-Based Gift (all)':'(\d+)'
+    },
+    'Average Award - Merit-Based Gift (Freshmen)':{
+        'FinAid Merit-Based Gift (freshmen)':'(\d+)'
+    },
+    'Average Award - Need-Based Gift (All Undergraduates)':{
+        'FinAid Need-Based Gift (all)':'Received by (\d+)',
+        'FinAid Need-Based Gift pct of FinAid Received (all)':'\(([\d\.]+)\)',
+        'FinAid Need-Based Gift avg Amount (all)':'amount (\d+)'
+    },
+    'Average Award - Need-Based Gift (Freshmen)':{
+        'FinAid Need-Based Gift (freshmen)':'Received by (\d+)',
+        'FinAid Need-Based Gift pct of FinAid Received (freshmen)':'\(([\d\.]+)\)',
+        'FinAid Need-Based Gift avg Amount (freshmen)':'amount (\d+)'
+    },
+    'Average Award - Need-Based Self-Help (All Undergraduates)':{
+        'FinAid Need-Based Self-Help (all)':'Received by (\d+)',
+        'FinAid Need-Based Self-Help pct of FinAid Received (all)':'\(([\d\.]+)\)',
+        'FinAid Need-Based Self-Help avg Amount (all)':'amount (\d+)'
+    },
+    'Average Award - Need-Based Self-Help (Freshmen)':{
+        'FinAid Need-Based Self-Help (freshmen)':'Received by (\d+)',
+        'FinAid Need-Based Self-Help pct of FinAid Received (freshmen)':'\(([\d\.]+)\)',
+        'FinAid Need-Based Self-Help avg Amount (freshmen)':'amount (\d+)'
+    },
+    'Average Starting Salary':{
+    	'Average Starting Salary':'(\d+)'
+    },
+    'Campus Size':{
+        'Campus Size (acres)':'(\d+)'
+    },
+    'Cost of Attendance':{
+        'Cost of Attendance':'Out-of-state: (\d+)',
+        'Cost of Attendance (in-state)':'In-state: (\d+)'
+    },
+    'Ethnicity of Students from U.S.':{
+        'Demographics pct American Indian/Alaskan Native':'([\d\.]+) American',
+        'Demographics pct Asian':'([\d\.]+) Asian',
+        'Demographics pct Black/African-American':'([\d\.]+) Black',
+        'Demographics pct Hispanic/Latino':'([\d\.]+) Hispanic',
+        'Demographics pct Multi-race (not Hispanic/Latino)':'([\d\.]+) Multi',
+        'Demographics pct Native Hawaiian/Pacific Islander':'([\d\.]+) Native',
+        'Demographcis pct White':'([\d\.]+) White',
+        'Demographics pct Unknown':'([\d\.]+) Unknown'
+    },
+    'Financial Aid Applicants (All Undergraduates)':{
+        'FinAid Apps (all)':'(\d+)'
+    },
+    'Found to Have Financial Need (All Undergraduates)':{
+        'FinAid Need Found (all)':'(\d+)'
+    },
+    'Found to Have Financial Need (Freshmen)':{
+        'FinAid Need Found (freshmen)':'(\d+)'
+    },
+    'High School Class Rank':{
+        'Freshmen pct in HS Top 10th':'Top tenth:\s*([\d\.]+)',
+        'Freshmen pct in HS Top 25th':'Top quarter:\s*([\d\.]+)',
+        'Freshmen pct in HS Top 50th':'Top half:\s*([\d\.]+)'
+    },
+    'International Students':{
+        'International pct of students':'([\d\.]+)'
+    },
+    'Merit-Based Gift (All Undergraduates)':{
+        'No FinAid Merit-Based Gift (all)':'^(\d+)',
+        'No FinAid Merit-Based Gift pct of students (all)':'\(([\d\.]+)\)',
+        'No FinAid Merit-Based Gift avg Amount (all)':'amount (\d+)'
+    },
+    'Merit-Based Gift (Freshmen)':{
+        'No FinAid Merit-Based Gift (freshmen)':'^(\d+)',
+        'No FinAid Merit-Based Gift pct of students (freshmen)':'\(([\d\.]+)\)',
+        'No FinAid Merit-Based Gift avg Amount (freshmen)':'amount (\d+)'
+    },
+    'Need Fully Met (All Undergraduates)':{
+    	'FinAid Need Fully Met (all)':'(\d+)'
+    },
+    'Need Fully Met (Freshmen)':{
+    	'FinAid Need Fully Met (freshmen)':'(\d+)'
+    },
+    'Overall Admission Rate (men)':{
+        'Offers (men)':'(\d+)'
+    },
+    'Overall Admission Rate (women)':{
+        'Offers (women)':'(\d+)'
+    },
+    'Rain':{
+        'Rainy Days (annual mean)':'(\d+)'
+    },
+    'Received Financial Aid (All Undergraduates)':{
+        'FinAid Received (all)':'(\d+)'
+    },
+    'Received Financial Aid (Freshmen)':{
+        'FinAid Received (freshmen)':'(\d+)'
+    },
+    'SAT Critical Reading':{
+        'SAT Reading Mean':'(\d+) average',
+        'SAT Reading 25th':'(\d+).*-',
+        'SAT Reading 75th':'-.*(\d+)'
+    },
+    'SAT Math':{
+        'SAT Math Mean':'(\d+) average',
+        'SAT Math 25th':'(\d+).*-',
+        'SAT Math 75th':'-.*(\d+)'
+    },
+    'Students Enrolled':{
+        'Freshmen Enrolled (all)':'(\d+)'
+    },
+    'Students Enrolled (men)':{
+        'Freshmen Enrolled (men)':'(\d+)'
+    },
+    'Students Enrolled (women)':{
+        'Freshmen Enrolled (women)':'(\d+)'
+    },
+    'Temperature':{
+        'Temperature (January mean low)':'([-\d\.]+) average low',
+        'Temperature (September mean high)':'([-\d\.]+) average high'
+    },
+    'Tuition and Fees':{
+        'Tuition and Fees':'Out-of-state: (\d+)',
+        'Tuition and Fees (in-state)':'In-state: (\d+)'
+    }
+}
