@@ -201,14 +201,14 @@ dirty_cols_extract_dict = {
         'FinAid Received (freshmen)':'(\d+)'
     },
     'SAT Critical Reading':{
-        'SAT Reading Mean':'(\d+) average',
-        'SAT Reading 25th':'(\d+).*-',
-        'SAT Reading 75th':'-.*(\d+)'
+        'SAT Reading Mean':'(\d+)\s*average',
+        'SAT Reading 25th':'(\d+)\s*-',
+        'SAT Reading 75th':'-\s*(\d+)'
     },
     'SAT Math':{
-        'SAT Math Mean':'(\d+) average',
-        'SAT Math 25th':'(\d+).*-',
-        'SAT Math 75th':'-.*(\d+)'
+        'SAT Math Mean':'(\d+)\s*average',
+        'SAT Math 25th':'(\d+)\s*-',
+        'SAT Math 75th':'-\s*(\d+)'
     },
     'Students Enrolled':{
         'Freshmen Enrolled (all)':'(\d+)'
@@ -276,3 +276,64 @@ usnews_rename_cities = {
  	'Cleveland':'South Euclid',
  	'Norfolk':'Virginia Beach'
  }
+
+num_col_ranges = {
+	'ACT 25th':(1, 36),
+	'ACT 75th':(1, 36),
+	'ACT Mean':(1, 36),
+	'Application Fee':(0,1000),
+	'Applications (all)':(0,1000000),
+	'Average Age':(18,100),
+	'Average Award (All Undergraduates)':(0,100000),
+	'Average Award (Freshmen)':(0,100000),
+	'Average Earnings from On-Campus Employment':(0,100000),
+	'Average Freshman Award':(0,100000),
+	'Average GPA':(1,5),
+	'Average Indebtedness of 2016 Graduates':(0,100000),
+	'Books and Supplies':(0,100000),
+	'Campus Size (acres)':(0,100000),
+	'Computers Available on Campus':(0,100000),
+	'Cost of Attendance':(0,100000),
+	'FinAid Apps (all)':(0,100000),
+	'FinAid Apps (freshmen)':(0,100000),
+	'FinAid Merit-Based Gift (all)':(0,100000),
+	'FinAid Merit-Based Gift (freshmen)':(0,100000),
+	'FinAid Need Found (all)':(0,100000),
+	'FinAid Need Found (freshmen)':(0,100000),
+	'FinAid Need Fully Met (all)':(0,100000),
+	'FinAid Need Fully Met (freshmen)':(0,100000),
+	'FinAid Need-Based Gift (all)':(0,100000),
+	'FinAid Need-Based Gift (freshmen)':(0,100000),
+	'FinAid Need-Based Gift avg Amount (all)':(0,100000),
+	'FinAid Need-Based Gift avg Amount (freshmen)':(0,100000),
+	'FinAid Need-Based Self-Help (all)':(0,100000),
+	'FinAid Need-Based Self-Help (freshmen)':(0,100000),
+	'FinAid Need-Based Self-Help avg Amount (all)':(0,100000),
+	'FinAid Need-Based Self-Help avg Amount (freshmen)':(0,100000),
+	'FinAid Received (all)':(0,100000),
+	'FinAid Received (freshmen)':(0,100000),
+	'Full-Time Faculty':(0,100000),
+	'Full-Time Faculty Teaching Undergraduates':(0,100000),
+	'Holdings':(0,100000000),
+	'International countries represented':(0,250),
+	'Nearest Airport (miles)':(0,1000),
+	'Nearest Bus Station (miles)':(0,1000),
+	'Nearest Train Station (miles)':(0,1000),
+	'No FinAid Merit-Based Gift (all)':(0,100000),
+	'No FinAid Merit-Based Gift (freshmen)':(0,100000),
+	'No FinAid Merit-Based Gift avg Amount (all)':(0,100000),
+	'No FinAid Merit-Based Gift avg Amount (freshmen)':(0,100000),
+	'Other Expenses':(0,100000),
+	'Part-Time Faculty':(0,100000),
+	'Rainy Days (annual mean)':(0,365),
+	'Rank':(1,300),
+	'Room and Board':(0,100000),
+	'SAT Math 25th':(200,800),
+	'SAT Math 75th':(200,800),
+	'SAT Reading 25th':(200,800),
+	'SAT Reading 75th':(200,800),
+	'Temperature (January mean low)':(-50,150),
+	'Temperature (September mean high)':(-50,150),
+	'Tuition and Fees':(0,100000),
+	'Students (all)':(0,100000)
+}
