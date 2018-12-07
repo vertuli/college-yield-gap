@@ -1,18 +1,16 @@
+# CollegeData scraper.
+import numpy as np
 import pandas as pd
-import re
-from os.path import isfile
 from requests import get
-from IPython.core.display import clear_output
-from bs4 import BeautifulSoup
-
+from bs4 import BeautifulSoup, SoupStrainer
 
 #############################################################################
 # Use this tool to scrape CollegeData.com into a CSV.
 #############################################################################
 # The URLs of interest on collegedata.com are broken down like this:
-BASE_URL_1 = "https://www.collegedata.com/cs/data/college/college_pg0"
+URL_PT_1 = "https://www.collegedata.com/cs/data/college/college_pg0"
 # followed by a `school_id` number. Following that, there is:
-BASE_URL_2 = "_tmpl.jhtml?schoolId="
+URL_PT_2 = "_tmpl.jhtml?schoolId="
 # Finally, there is a `page_id` number, ranging from 1 to 6, inclusive.
 # Not all possible `school_id` numbers corresponds to a school, but most do.
 # A page requested corresponding to a `school_id` with no school data will
@@ -33,256 +31,88 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14) "
 PATH = "test_scraped.csv"
 
 
-#############################################################################
-# Exceptions
-#############################################################################
-# These errors could arise while requesting and scraping the pages.
-class PageRequestError(Exception):
-    # The response code was something other than 200.
-    pass
-
-class NoHeadingError(Exception):
-    # The HTML has no <h1> tag.
-    pass
-
-class NoSchoolError(Exception):
-    # There is no school data for the given `school_id`. Not really an error.
-    pass
-
-class IncompletePageError(Exception):
-    # The comment code at the bottom of a fully loaded page was not found.
-    pass
-
-class EmptyPageError(Exception):
-    # No data was scraped from a fully loaded normal page.
-    pass
-
-
-#############################################################################
-# Functions
-#############################################################################
-def scrape_collegedata(start = SCHOOL_ID_START, stop = SCHOOL_ID_END):
-    """Extract data from CollegeData.com.
-
-    Keyword arguments:
-    start -- `schoolId` in URL to begin scraping, inclusive.
-    stop  -- `schoolId` in URL to end scraping, inclusive.
-
-    If data for a `schoolId` exists, scrape_collegedata will request
-    all six pages (Overview, Admissions, Money Matters, Academics, Campus
-    Life, and Students) associated with that school. Relevant rows and tables
-    will be scraped from the six pages and saved together as a single pandas 
-    Series, with the `schoolId` as the Series' name. 
-
-    scrape_collegedata will return a list of Series, one for each
-    scraped school.
-     """
-
-    # Hold scraped schools as a list of pandas series.
-    scraped_list = []
-
-    # Scrape and save each page of each school.
-    for school_id in range(start, stop + 1):
-        try:
-            # Request and parse HTML for all six pages associated w/ a school_id.
-            soups = [get_soup(school_id, page_id) for page_id in range(1, 7)]
-            
-            # Relabel some problematic <th> labels before scraping.
-            soups = relabel(soups)
-            
-            # School dictionary to hold all scraped values.
-            school_dict = extract(soups)
-
-        except PageRequestError:
-            print('PageRequestError: Status Code != 200')
-        except NoHeadingError:
-            print('NoHeadingError: Page HTML has no <h1> tag.')
-        except NoSchoolError:
-            print('NoSchoolError: Page intentionally has no school data.')
-        except IncompletePageError:
-            print('IncompletePageError: Page did not completely load.')
-        except EmptyPageError:
-            print('EmptyPageError: No data scraped from page.')
-        else:
-            # Convert dict to pandas Series and append to scaped_list.
-            scraped_series = pd.Series(school_dict, name = school_id)
-            scraped_list.append(scraped_series)
-        finally:
-            # Clear status message.
-            clear_output()
-
-    return scraped_list
-
-
-def get_soup(school_id, page_id):
-    # Build the CollegeData.com URL corresponding to school_id and page_id.
-    url = BASE_URL_1 + str(page_id) + BASE_URL_2 + str(school_id)
-
+def get_soup(url, SoupStrainer = None):
     # Request page and check if page returned.
     result = get(url, headers = HEADERS)
     if result.status_code != 200:
         raise PageRequestError
-        
     # Parse page text into BeautifulSoup object.
-    soup = BeautifulSoup(result.text, "lxml")
-    
-    # Raise an error if no <h1> tag exists.
-    if not soup.h1:
-        raise NoHeadingError
-
-    # Raise an error if the <h1> text suggests no school exists.
-    if soup.h1.string == EMPTY_H1_HEADING:
-        raise NoSchoolError
-
-    # Raise an error if the HTML comment at the end of the page content
-    # didn't load, which can sometimes happen when requesting too fast.
-    if not soup.find(string = 'Content END'):
-        raise IncompletePageError
-        
-    # Print a status update.
-    print('Scraped school {}, page {}'.format(school_id, page_id))
-
+    soup = BeautifulSoup(result.text, "lxml", parse_only = SoupStrainer)
     return soup
 
 
-def relabel(soups):
-    # Prepend headings and clean repeated gender labels.
-    strings = ['\xa0\xa0 Women', '\xa0\xa0 Men']
-    tr_list = [[tr for soup in soups for tr in soup('tr') \
-                if re.search(string, tr.get_text())] for string in strings]
-    headings = [tr.find_previous_sibling('tr').th.get_text() for tr in tr_list[0]]*2
-    th_list = [tr.th for trs in tr_list for tr in trs] # flatten list
-    labels = [th.get_text(strip = True) for th in th_list]
-    _ = [th.string.replace_with(headings[i] + ', ' + labels[i]) \
-                for i, th in enumerate(th_list)]
+def get_collegedata_page(school_id, page_id):
+    url = URL_PT_1 + str(page_id) + URL_PT_2 + str(school_id)
+    strainer = SoupStrainer(
+        lambda tag, d: tag == 'h1' or d.get('id') == 'tabcontwrap')
+    soup = get_soup(url, strainer)
+    return soup
+
+
+school_id = 59  # temporary test school
+
+# Get each of the six pages for a school.
+pages = [get_collegedata_page(school_id, i) for i in range(1, 7)]
+
+# Hold all scraped values in a single pandas Series.
+school_s = pd.Series(name = school_id)
+
+# Get the school Name and Description from the first page.
+# These values are the only we'll be extracted that are not
+# found inside an HTML table.
+school_s['Name'] = pages[0].h1.text
+school_s['Desc'] = pages[0].p.text
+
+# Convert all HTML tables as a list of DataFrame objects.
+na_vals = ['Not reported', 'Not Reported']
+df_list = []
+for page in pages:
+    dfs = pd.read_html(page.decode(), na_values = na_vals, index_col = 0)
+    for i in range(len(dfs)):
+        dfs[i] = dfs[i][dfs[i].index.notnull()]  # del rows w/ null indices
+    df_list += dfs
     
-    # Prepend heading to repeated phone and email labels.
-    heading = 'Financial Aid Office'
-    table = soups[2].find('caption', string = re.compile(heading)).parent
-    _ = [th.string.replace_with(heading + ', ' + th.string) \
-         for th in table.tbody('th')[0:2]]
-    
-    # Append captions to duplicate financial aid labels.
-    tables = soups[2].find('div', id = 'section11')('table')[0:2]
-    captions = [table.caption.get_text(strip = True) for table in tables]
-    tr_list = [table.tbody('tr') for table in tables]
-    th_list = [[tr.th for tr in trs] for trs in tr_list]
-    _ = [[th.insert(1, ', ' + captions[i]) \
-                for th in ths if not th.has_attr('class')] \
-                    for i, ths in enumerate(th_list)]
-    
-    # Prepend a heading to the GPA labels.
-    regex = re.compile("Grade Point Average")
-    table = soups[1].find('caption', string = regex).parent
-    _ = table.tbody.th.string.replace_with('GPA, Average')
-    _ = [th.insert(0, 'GPA, ') for th in table.tbody('th')[1:]]
-    
-    return soups
+# List of scalar objects squeezed from scraped DataFrames with zero columns.
+val_list = [df.reset_index().squeeze() for df in df_list if df.shape[1] == 0]
 
+# List of Series objects squeezed from scraped DataFrames w/only one column.
+s_list = [df.squeeze() for df in df_list if df.shape[1] == 1]
 
-def extract(soups):   
-    extracted_dict = {}
-    
-    # Extract the school name.
-    #h1 = soups[0].h1.extract()
-    #d['Name'] = h1.get_text()
-    extracted_dict.update(extract_name())
-    
-    # Extract the fafsa code and filing cost.
-    regex = re.compile('Forms Required')
-    table = soups[2].find('th', string = regex).find_parent('table').extract()
-    extracted_dict['FAFSA'] = table.tbody.th.get_text()
-    extracted_dict['Financial Aid Filing Cost'] = table.tbody.td.get_text()
-    #d.update(extract_applying_finaid())
+# List only the scraped DataFrame objects with more than one column.
+df_list = [df for df in df_list if df.shape[1] > 1]
 
-    # Extract the city population.
-    regex = re.compile('Population')
-    tr = soups[0].find('th', string = regex).find_parent('tr').extract()
-    _ = soups[4].find('th', string = regex).find_parent('tr').decompose()
-    extracted_dict['City Population'] = tr.td.get_text()
-    #d.update(extract_city_pop())
-    
-    # Extract <th class='sub'> rows with appropriate header labels prepended to keys.
-    tr_list = [[th.parent for th in soup('th', class_ = 'sub')] for soup in soups]
-    tr_list = [tr for sublist in tr_list for tr in sublist]  # flatten list
-    sub_keys = [tr.th.get_text(strip = True) for tr in tr_list]
-    headers = [tr.find_previous('th', class_ = None).get_text() for tr in tr_list]
-    keys = [headers[i] + ', ' + sub_key for i, sub_key in enumerate(sub_keys)]
-    vals = [tr.extract().td.get_text(strip = True) for tr in tr_list]
-    extracted_dict.update(dict(zip(keys, vals)))
-    #d.update(extract_sub_rows())
+# First, find the DataFrame for the 'Selection of Students' tables.
+# It has the word 'Factor' as its index name - which no others table should.
+results = [df for df in df_list if df.index.name == 'Factor']
 
-    # Extract from 'Selection of Students' table.
-    table = soups[1].find('div', id = 'section7').table.extract()
-    col_labels = [td.get_text() for td in table.thead.tr('td')]
-    rows = [tr for tr in table.tbody('tr') if 'X' in [td.get_text() for td in tr('td')]]
-    index = [[td.get_text() for td in tr('td')].index('X') for tr in rows]
-    keys = ['Selection Factor, ' + tr.th.get_text() for tr in rows]
-    vals = [col_labels[i] for i in index]
-    extracted_dict.update(dict(zip(keys, vals)))
-    #d.update(extract_table_selection_students())
+# There are two results:
+#   The first is a short version of this table on the 'Overview' page.
+#   The second is the full version on the 'Admissions' page.
+# We'll only use full one.
+df = results[1]
 
-    # Extract from majors / programs of study tables.
-    keys = ['Undergraduate Majors',
-            "Master's Programs of Study",
-            'Doctoral Programs of Study']
-    regexs = [re.compile(key) for key in keys]
-    tags = soups[3]('caption', string = regexs)
-    tables = [tag.find_parent('table').extract() for tag in tags]
-    vals = [[li.get_text(strip = True) for li in table('li')] for table in tables]
-    extracted_dict.update(dict(zip(keys, vals)))
-    #d.update(extract_table_majors())
+# This table's columns are categories ('Very Important', 'Important', ...).
+# Its index is admissions 'Factors' ('Academic GPA', 'Class Rank', ...).
+# Each cell in its row should either be blank or marked with an 'X'. 
+msg = f"'Selection of Students' table expected to contain only 'X'.\n{df}"
+assert set(df.values.flatten()) == set(['X', np.nan]), msg
 
-    # Extract from master's / doctoral degrees tables.
-    keys = ["Master's Degrees Offered",
-            "Doctoral Degrees Offered"]
-    regexs = [re.compile(key) for key in keys]
-    tags = soups[3]('caption', string = regexs)
-    tables = [tag.find_parent('table').extract() for tag in tags]
-    vals = [table.th.get_text(strip = True).split(", ") for table in tables]
-    extracted_dict.update(dict(zip(keys, vals)))
-    #d.update(extract_table_degrees())
+# We can extract a single val from each row - the column name that is marked.
+# First replace the 'X' marks with a numeric value:
+df = df.replace('X', 1)
 
-    # TO DO: Extract remaining tables (HS units, sports).
+# Then get a pandas Series object showing, for each row, the column name
+# corresponding to the row's highest value.
+s = df.idxmax(1)
 
-    # Finally, extract all <th> as key, <td> as value data from key/val rows.
-    rows = [row.extract() for soup in soups for row in soup('tr') \
-                if len(row('th')) == 1 and len(row('td')) == 1]
-    keys = [tr.th.get_text(strip = True) for tr in rows]
-    vals = [tr.td.get_text(strip = True) for tr in rows]
-    extracted_dict.update(dict(zip(keys, vals)))
-    #d.update(extract_rows())
+school_s = school_s.append(s)
 
-    # Return scraped data as a dictionary.
-    return extracted_dict
-
-
-def extract_name():
-    d = {}
-        
-    h1 = soups[0].h1.extract()
-    d['Name'] = h1.get_text()
-    
-    return d
-    
-
-#############################################################################
-# Running the scraper.
-#############################################################################
-
-if isfile(PATH):
-    df = pd.read_csv(PATH, index_col = 'school_id')
-    SCHOOL_ID_START = df.index.max() + 1
-else:
-    df = pd.DataFrame()
-
-if SCHOOL_ID_START < SCHOOL_ID_END:
-    scraped_list = scrape_collegedata(SCHOOL_ID_START, SCHOOL_ID_END)
-    print("Scraped {} schools.".format(len(scraped_list)))
-
-    scraped_df = pd.DataFrame(scraped_list)
-    scraped_df.index.name = 'school_id'
-    df = df.append(scraped_df, sort = True)
-    df.to_csv(PATH)
-else:
-    print("Scraped no schools.")
+# For both the 'High School Units Required or Recommended' table and the 
+# 'Examinations' table - both on the 'Admissions' page - there are two columns
+# and each row could have data in each of those columns.
+results = [df for df in df_list if df.index.name in ['Subject', 'Exam']]
+for df in results:
+    s_list = [df[col] for col in df.columns]
+    for s in s_list:
+        s.index = s.index + ', ' + s.name
+    school_s = school_s.append(pd.concat(s_list))
