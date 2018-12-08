@@ -30,7 +30,6 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14) "
 # begin with the `school_id` after the highest already scraped in the CSV:
 PATH = "test_scraped.csv"
 
-
 def get_soup(url, SoupStrainer = None):
     # Request page and check if page returned.
     result = get(url, headers = HEADERS)
@@ -40,7 +39,6 @@ def get_soup(url, SoupStrainer = None):
     soup = BeautifulSoup(result.text, "lxml", parse_only = SoupStrainer)
     return soup
 
-
 def get_collegedata_page(school_id, page_id):
     url = URL_PT_1 + str(page_id) + URL_PT_2 + str(school_id)
     strainer = SoupStrainer(
@@ -48,9 +46,7 @@ def get_collegedata_page(school_id, page_id):
     soup = get_soup(url, strainer)
     return soup
 
-
-school_id = 59  # temporary test school
-
+school_id = 59
 # Get each of the six pages for a school.
 pages = [get_collegedata_page(school_id, i) for i in range(1, 7)]
 
@@ -61,7 +57,7 @@ school_s = pd.Series(name = school_id)
 # These values are the only we'll be extracted that are not
 # found inside an HTML table.
 school_s['Name'] = pages[0].h1.text
-school_s['Desc'] = pages[0].p.text
+school_s['Description'] = pages[0].p.text
 
 # Convert all HTML tables as a list of DataFrame objects.
 na_vals = ['Not reported', 'Not Reported']
@@ -71,48 +67,65 @@ for page in pages:
     for i in range(len(dfs)):
         dfs[i] = dfs[i][dfs[i].index.notnull()]  # del rows w/ null indices
     df_list += dfs
-    
-# List of scalar objects squeezed from scraped DataFrames with zero columns.
+
+# List scalar objects squeezed from the scraped DataFrames with zero columns.
 val_list = [df.reset_index().squeeze() for df in df_list if df.shape[1] == 0]
 
-# List of Series objects squeezed from scraped DataFrames w/only one column.
+# List pandas Series objects squeezed from DataFrames w/only one column.
 s_list = [df.squeeze() for df in df_list if df.shape[1] == 1]
 
 # List only the scraped DataFrame objects with more than one column.
 df_list = [df for df in df_list if df.shape[1] > 1]
 
-# First, find the DataFrame for the 'Selection of Students' tables.
-# It has the word 'Factor' as its index name - which no others table should.
-results = [df for df in df_list if df.index.name == 'Factor']
-
-# There are two results:
-#   The first is a short version of this table on the 'Overview' page.
-#   The second is the full version on the 'Admissions' page.
-# We'll only use full one.
-df = results[1]
-
-# This table's columns are categories ('Very Important', 'Important', ...).
-# Its index is admissions 'Factors' ('Academic GPA', 'Class Rank', ...).
-# Each cell in its row should either be blank or marked with an 'X'. 
-msg = f"'Selection of Students' table expected to contain only 'X'.\n{df}"
-assert set(df.values.flatten()) == set(['X', np.nan]), msg
-
-# We can extract a single val from each row - the column name that is marked.
-# First replace the 'X' marks with a numeric value:
-df = df.replace('X', 1)
-
-# Then get a pandas Series object showing, for each row, the column name
-# corresponding to the row's highest value.
-s = df.idxmax(1)
-
-school_s = school_s.append(s)
-
 # For both the 'High School Units Required or Recommended' table and the 
 # 'Examinations' table - both on the 'Admissions' page - there are two columns
-# and each row could have data in each of those columns.
+# and each row in those tables could have data for each columns.
 results = [df for df in df_list if df.index.name in ['Subject', 'Exam']]
 for df in results:
     s_list = [df[col] for col in df.columns]
     for s in s_list:
         s.index = s.index + ', ' + s.name
     school_s = school_s.append(pd.concat(s_list))
+
+# The 'Selection of Students' table has 'Factor' as an index name.
+results = [df for df in df_list if df.index.name == 'Factor']
+
+# There are two of these tables, the first a short one on the 'Overview' page
+# and the second a full version on the 'Admissions' page. Take the second.
+df = results[1]
+
+d = {}
+for row_name, row in df.iterrows():
+    # Each row in this table can only have one 'X' mark value.
+    # Get the marked column names by dropping the other null row values.
+    col_names = row.dropna().index.tolist()
+    
+    # There should only be one marked columns.
+    # Pair the column name with the row label.
+    d[row_name] = col_names[0]
+
+# Create series of extrated pairs and add to the other extracted values.
+s = pd.Series(d)
+school_s = school_s.append(s)
+
+# The sports table has a two level column headers, which pd.read_html converts
+# to a multiindex with a names attribute that we can use to find the table.
+results = [df for df in df_list if df.columns.names == ['Sport', 'Offered']]
+
+# There should only be one result.
+df = results[0]
+
+# We'll just manually simplify the columns with new string names.
+df.columns = ['Sports, Women, Scholarships Given',
+              'Sports, Women, Offered',
+              'Sports, Men, Scholarships Given',
+              'Sports, Men, Offered']
+
+# Otherwise, this procedure is similar to the previous table.
+# In this table, multiple columns can be marked.
+# It makes more sense to store each column as the key, and a
+# list of all marked rows as the value in our dictionary.
+d = {}
+for col_name in df.columns:
+    row_names = df[col_name].dropna().index.tolist()
+    d[col_name] = row_names
