@@ -3,10 +3,11 @@ import numpy as np
 import pandas as pd
 from requests import get
 from bs4 import BeautifulSoup, SoupStrainer
+import re
 
-#############################################################################
-# Use this tool to scrape CollegeData.com into a CSV.
-#############################################################################
+
+# DEFINITIONS
+##############################################################################
 # The URLs of interest on collegedata.com are broken down like this:
 URL_PT_1 = "https://www.collegedata.com/cs/data/college/college_pg0"
 # followed by a `school_id` number. Following that, there is:
@@ -30,6 +31,9 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14) "
 # begin with the `school_id` after the highest already scraped in the CSV:
 PATH = "test_scraped.csv"
 
+
+# SCRAPING FUNCTIONS
+##############################################################################
 def get_soup(url, SoupStrainer = None):
     # Request page and check if page returned.
     result = get(url, headers = HEADERS)
@@ -46,6 +50,7 @@ def get_collegedata_page(school_id, page_id):
     soup = get_soup(url, strainer)
     return soup
 
+
 school_id = 59
 # Get each of the six pages for a school.
 pages = [get_collegedata_page(school_id, i) for i in range(1, 7)]
@@ -59,6 +64,8 @@ school_s = pd.Series(name = school_id)
 school_s['Name'] = pages[0].h1.text
 school_s['Description'] = pages[0].p.text
 
+# GET DATAFRAMES FROM SCRAPED PAGES
+##############################################################################
 # Convert all HTML tables as a list of DataFrame objects.
 na_vals = ['Not reported', 'Not Reported']
 df_list = []
@@ -68,64 +75,110 @@ for page in pages:
         dfs[i] = dfs[i][dfs[i].index.notnull()]  # del rows w/ null indices
     df_list += dfs
 
-# List scalar objects squeezed from the scraped DataFrames with zero columns.
-val_list = [df.reset_index().squeeze() for df in df_list if df.shape[1] == 0]
+# Split all DataFrames into separate lists depending on num of cols and rows.
+nocol_df_list  = [df for df in df_list if len(df.columns)==0]
+onecol_df_list = [df for df in df_list if len(df) > 1 and len(df.columns)==1]
+table_df_list   = [df for df in df_list if len(df.columns)>1]
 
-# List pandas Series objects squeezed from DataFrames w/only one column.
-s_list = [df.squeeze() for df in df_list if df.shape[1] == 1]
 
-# List only the scraped DataFrame objects with more than one column.
-df_list = [df for df in df_list if df.shape[1] > 1]
-
-# For both the 'High School Units Required or Recommended' table and the 
-# 'Examinations' table - both on the 'Admissions' page - there are two columns
-# and each row in those tables could have data for each columns.
-results = [df for df in df_list if df.index.name in ['Subject', 'Exam']]
-for df in results:
-    s_list = [df[col] for col in df.columns]
-    for s in s_list:
-        s.index = s.index + ', ' + s.name
-    school_s = school_s.append(pd.concat(s_list))
-
-# The 'Selection of Students' table has 'Factor' as an index name.
-results = [df for df in df_list if df.index.name == 'Factor']
-
-# There are two of these tables, the first a short one on the 'Overview' page
-# and the second a full version on the 'Admissions' page. Take the second.
-df = results[1]
-
-d = {}
-for row_name, row in df.iterrows():
-    # Each row in this table can only have one 'X' mark value.
-    # Get the marked column names by dropping the other null row values.
-    col_names = row.dropna().index.tolist()
-    
-    # There should only be one marked columns.
-    # Pair the column name with the row label.
-    d[row_name] = col_names[0]
-
-# Create series of extrated pairs and add to the other extracted values.
-s = pd.Series(d)
+# EXTRACT FROM DATAFRAMES WITH NO COLUMNS
+##############################################################################
+# Create a labeled Series from scalar objects and append it to school_s.
+vals = [df.index.tolist()[0] for df in nocol_df_list]
+idx = ['Entrance Difficulty', 
+       "Master's Degrees Offered", 
+       "Doctoral Degrees Offered"]
+s = pd.Series(vals, index = idx)
 school_s = school_s.append(s)
 
-# The sports table has a two level column headers, which pd.read_html converts
-# to a multiindex with a names attribute that we can use to find the table.
-results = [df for df in df_list if df.columns.names == ['Sport', 'Offered']]
 
-# There should only be one result.
-df = results[0]
+# EXTRACT FROM DATAFRAMES WITH ONE COLUMN, MULTIPLE ROWS
+##############################################################################
+# Extract first (and only) column from each df in one_col_df_list as a Series.
+s_list = [df.iloc[:, 0] for df in onecol_df_list]
+s = pd.concat(s_list)
+school_s = school_s.append(s)
 
-# We'll just manually simplify the columns with new string names.
+
+# EXTRACT FROM DATAFRAMES WITH MULTIPLE COLUMNS
+##############################################################################
+# 'High School Units Required or Recommended' table on 'Admissions' page, and
+# 'Examinations' table, also on 'Admissions' page, have the same structure.
+# Create Series from cell vals each labeled by combining row + column label.
+results = [df for df in table_df_list if df.index.name in ['Subject', 'Exam']]
+for df in results:
+    cols_s = [df[col] for col in df.columns]
+    for col_s in cols_s:
+        col_s.index = col_s.index + ', ' + col_s.name
+    s = pd.concat(cols_s)
+    school_s = school_s.append(s)
+
+# 'Selection of Students' tables exist on 'Overview' and 'Admissions' page.
+# The second one is the full version we will use. Each row only contains only
+# up to a single 'X' under one of the columns. Create a Series of the marked
+# column label for each row.
+results = [df for df in table_df_list if df.index.name == 'Factor']
+df = results[1] # Only use the second, full table.
+
+s = pd.Series(index = df.index)
+for row_name, row in df.iterrows():
+    s[row_name] = row.dropna().index.tolist()[0]
+school_s = school_s.append(s)
+
+# 'Intercollegiate Sports Offered' exists on the 'Campus Life' page.
+# It is similar to the previous 'Selection of Students' table, but
+# we will extract values by column instead of by row. Also, multiple rows
+# can be marked, so our Series values will be a list of marked row labels.
+col_level_names = ['Sport', 'Offered']
+results = [df for df in table_df_list if df.columns.names == col_level_names]
+df = results[0] # Should only be one result.
+
+# Manually simplify the column names.
 df.columns = ['Sports, Women, Scholarships Given',
               'Sports, Women, Offered',
               'Sports, Men, Scholarships Given',
               'Sports, Men, Offered']
-
-# Otherwise, this procedure is similar to the previous table.
-# In this table, multiple columns can be marked.
-# It makes more sense to store each column as the key, and a
-# list of all marked rows as the value in our dictionary.
-d = {}
+s = pd.Series(index = df.columns)
 for col_name in df.columns:
-    row_names = df[col_name].dropna().index.tolist()
-    d[col_name] = row_names
+    s[col_name] = df[col_name].dropna().index.tolist()
+school_s = school_s.append(s)
+
+
+# GET ADDITIONAL VALUES
+##############################################################################
+# Get the FAFSA code.
+div = pages[2].find('div', id='section10')
+if div:
+    tables = div.find_all('table')
+    if len(tables) == 3:
+        school_s['FAFSA Code'] = tables[2].tbody.th.text[-6:]
+        
+# Get the list of majors and programs of study.
+caption_strings = ['Undergraduate Majors',
+                   "Master's Programs of Study",
+                   'Doctoral Programs of Study']
+for caption_string in caption_strings:
+    caption = pages[3].find('caption', string=re.compile(caption_string))
+    if caption:
+        th = caption.find_next('th')
+        td = caption.find_next('td')
+        th_string = "---".join(th.stripped_strings)
+        td_string = "---".join(td.stripped_strings)
+        vals = th_string.split('---')
+        vals += td_string.split('---')
+        school_s[caption_string] = vals
+
+
+# CLEANING LABELS
+##############################################################################
+# Fix city Population labels (varying label contains city name).
+idxs = [idx for idx in school_s.index if idx.find('Population') != -1]
+if idxs:
+    idx = idxs[0]
+    school_s['City Population'] = school_s[idx].iloc[0]
+    school_s = school_s.drop(idx)
+    
+# Drop the accuweather javascript map widget.
+idxs = [idx for idx in school_s.index if idx.find('View Larger Map') != -1]
+if idxs:
+    school_s = school_s.drop(idxs[0])
